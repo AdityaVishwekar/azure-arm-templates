@@ -1,0 +1,33 @@
+{
+    "PublicConfig": {
+        "WadCfg": {
+            "DiagnosticMonitorConfiguration": {
+                "overallQuotaInMB": 4096,
+                "sinks": "HotPath"
+            },
+            "SinksConfig": {
+                "Sink": [
+                    {
+                        "name": "HotPath",
+                        "EventHub": {
+                            "Url": "https://adi-ehns.servicebus.windows.net/adi-eh",
+                            "SharedAccessKeyName": "SendRule",
+                            "SharedAccessKey": "JfPB/nAZHOsg566gTsOQkqmX1pbdxDbQvvrdzNyBtl8="
+                        }
+                    }
+                ]
+            }
+        },
+        "storageAccount": "adityadevdiag"
+    },
+    "PrivateConfig": {
+        "storageAccountName": "adityadevdiag",
+        "storageAccountKey": "ZXF4o0CJwI7DAw8VrtPdP3xGied0OCINbresED3lQVdCX+Q06gXkGww1AfsqsMBVxgoP0v1zB1pXEGUykmjjpQ==",
+        "storageAccountEndPoint": "https://core.windows.net/",
+        "EventHub": {
+            "Url": "https://adi-ehns.servicebus.windows.net/adi-eh",
+            "SharedAccessKeyName": "SendRule",
+            "SharedAccessKey": "JfPB/nAZHOsg566gTsOQkqmX1pbdxDbQvvrdzNyBtl8="
+        }
+    }
+}

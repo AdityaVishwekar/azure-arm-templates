@@ -1,0 +1,92 @@
+{
+	"PublicConfig": {
+		"storageAccount": "adityadevdiag",
+		"sampleRateInSeconds": 15,
+		"storageAccountSasToken": "ZXF4o0CJwI7DAw8VrtPdP3xGied0OCINbresED3lQVdCX+Q06gXkGww1AfsqsMBVxgoP0v1zB1pXEGUykmjjpQ==",
+		"sinksConfig": {
+			"sink": [
+				{
+					"name": "HotPath",
+					"type": "EventHub",
+					"sasURL": "https://adi-ehns.servicebus.windows.net/syslogmsgs?sr=adi-ehns.servicebus.windows.net%2fsyslogmsgs&sig=JfPB/nAZHOsg566gTsOQkqmX1pbdxDbQvvrdzNyBtl8=&skn=RootManageSharedAccessKey"
+				}
+			]
+		},
+		"ladCfg": {
+			"diagnosticMonitorConfiguration": {
+				"performanceCounters": {
+					"sinks": "HotPath",
+					"performanceCounterConfiguration": [
+						{
+							"unit": "Percent",
+							"type": "builtin",
+							"counter": "PercentProcessorTime",
+							"counterSpecifier": "/builtin/Processor/PercentProcessorTime",
+							"annotation": [
+								{
+									"locale": "en-us",
+									"displayName": "Aggregate CPU %utilization"
+								}
+							],
+							"condition": "IsAggregate=TRUE",
+							"class": "Processor"
+						},
+						{
+							"unit": "Bytes",
+							"type": "builtin",
+							"counter": "UsedSpace",
+							"counterSpecifier": "/builtin/FileSystem/UsedSpace",
+							"annotation": [
+								{
+									"locale": "en-us",
+									"displayName": "Used disk space on /"
+								}
+							],
+							"condition": "Name=\"/\"",
+							"class": "Filesystem"
+						}
+					]
+				},
+				"metrics": {
+					"metricAggregation": [
+						{
+							"scheduledTransferPeriod": "PT1H"
+						},
+						{
+							"scheduledTransferPeriod": "PT1M"
+						}
+					],
+					"resourceId": "/subscriptions/6b62054d-bae7-46e4-a0ee-0c6950d10e9e/resourceGroups/aditya-dev/providers/Microsoft.Compute/virtualMachines/TestLoganLinux"
+				},
+				"eventVolume": "Large",
+				"syslogEvents": {
+					"sinks": "HotPath",
+					"syslogEventConfiguration": {
+						"LOG_USER": "LOG_INFO"
+					}
+				}
+			}
+		},
+		"perfCfg": [
+			{
+				"query": "SELECT PercentProcessorTime, PercentIdleTime FROM SCX_ProcessorStatisticalInformation WHERE Name='_TOTAL'",
+				"table": "LinuxCpu",
+				"frequency": 60,
+				"sinks": "HotPath"
+			}
+		],
+		"fileLogs": [
+			{
+				"file": "/var/log/myladtestlog",
+				"table": "MyLadTestLog",
+				"sinks": "HotPath"
+			}
+		]
+	},
+	"PrivateConfig": {
+		"storageAccountName": "adityadevdiag",
+		"storageAccountKey": "ZXF4o0CJwI7DAw8VrtPdP3xGied0OCINbresED3lQVdCX+Q06gXkGww1AfsqsMBVxgoP0v1zB1pXEGUykmjjpQ==",
+		"storageAccountEndPoint": "https://core.windows.net/",
+	
+	}
+}

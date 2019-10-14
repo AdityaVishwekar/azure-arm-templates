@@ -1,0 +1,277 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "projectName": {
+      "type": "string",
+      "metadata": {
+        "description": "Specifies a name for generating resource names."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Specifies the location for all resources."
+      }
+    },
+    "adminUsername": {
+      "type": "string",
+      "metadata": {
+        "description": "Specifies a username for the Virtual Machine."
+      }
+    },
+    "adminPublicKey": {
+      "type": "string",
+      "metadata": {
+        "description": "Specifies the SSH rsa public key file as a string. Use \"ssh-keygen -t rsa -b 2048\" to generate your SSH key pairs."
+      }
+    }
+  },
+  "variables": {
+    "storageAccountName": "[concat(uniquestring(resourceGroup().id), 'sawinvm')]",
+    "accountid": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
+    "vNetName": "[concat(parameters('projectName'), '-vnet')]",
+    "vNetAddressPrefixes": "10.0.0.0/16",
+    "vNetSubnetName": "default",
+    "vNetSubnetAddressPrefix": "10.0.0.0/24",
+    "vmName": "[concat(parameters('projectName'), '-vm')]",
+    "publicIPAddressName": "[concat(parameters('projectName'), '-ip')]",
+    "networkInterfaceName": "[concat(parameters('projectName'), '-nic')]",
+    "diagnosticStorageAccountName": "dmb5lxlwkkaiqsawinvm",
+    "diagnosticResourceGroup": "aditya-dev",
+    "diagnosticExtensionName": "LinuxDiagnosticsLogs",
+    "diagnosticStorageAccountId": "[resourceId(subscription().subscriptionid,variables('diagnosticResourceGroup'),'Microsoft.Storage/storageAccounts/', variables('diagnosticStorageAccountName'))]",
+    "eventhubprefix": "",
+    "eventHubResourceGroup": "aditya-dev",
+    "eventHubNamespaceName": "adi-ehns",
+    "eventHubName": "adi-eh",
+    "eventHubKeyName": "RootManageSharedAccessKey",
+    "ehversion": "2017-04-01",
+    "eventHubUri": "[concat('https://',variables('eventHubNamespaceName'), '.servicebus.windows.net/',variables('eventHubName'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2018-11-01",
+      "name": "[variables('storageAccountName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "kind": "Storage",
+      "properties": {}
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2018-11-01",
+      "name": "[variables('publicIPAddressName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "publicIPAllocationMethod": "Dynamic"
+      },
+      "sku": {
+        "name": "Basic"
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2018-11-01",
+      "name": "[variables('vNetName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('vNetAddressPrefixes')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('vNetSubnetName')]",
+            "properties": {
+              "addressPrefix": "[variables('vNetSubnetAddressPrefix')]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2018-11-01",
+      "name": "[variables('networkInterfaceName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPAddressName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('vNetName'))]"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vNetName'), variables('vNetSubnetName'))]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2018-10-01",
+      "name": "[variables('vmName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('networkInterfaceName'))]"
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "Standard_D2s_v3"
+        },
+        "osProfile": {
+          "computerName": "[variables('vmName')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "linuxConfiguration": {
+            "disablePasswordAuthentication": true,
+            "ssh": {
+              "publicKeys": [
+                {
+                  "path": "[concat('/home/', parameters('adminUsername'), '/.ssh/authorized_keys')]",
+                  "keyData": "[parameters('adminPublicKey')]"
+                }
+              ]
+            }
+          }
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "Canonical",
+            "offer": "UbuntuServer",
+            "sku": "18.04-LTS",
+            "version": "latest"
+          },
+          "osDisk": {
+            "createOption": "fromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('networkInterfaceName'))]"
+            }
+          ]
+        }
+      },
+      "resources": [
+        {
+          "type": "Microsoft.Compute/virtualMachines/extensions",
+          "name": "[concat(variables('vmName'), '/', variables('diagnosticExtensionName'))]",
+          "location": "[parameters('location')]",
+          "dependsOn": [
+            "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]"
+          ],
+          "apiVersion": "2017-03-30",
+          "properties": {
+            "publisher": "Microsoft.Azure.Diagnostics",
+            "type": "LinuxDiagnostic",
+            "typeHandlerVersion": "3.0",
+            "autoUpgradeMinorVersion": true,
+            "settings": {
+              "StorageAccount": "[variables('diagnosticStorageAccountName')]",
+              "ladCfg": {
+                "diagnosticMonitorConfiguration": {
+                  "performanceCounters": {
+                    "sinks": "WADMetricEventHub,WADMetricJsonBlob",
+                    "performanceCounterConfiguration": [
+                      {
+                        "unit": "Percent",
+                        "type": "builtin",
+                        "counter": "PercentProcessorTime",
+                        "counterSpecifier": "/builtin/Processor/PercentProcessorTime",
+                        "annotation": [
+                          {
+                            "locale": "en-us",
+                            "displayName": "Aggregate CPU %utilization"
+                          }
+                        ],
+                        "condition": "IsAggregate=TRUE",
+                        "class": "Processor"
+                      },
+                      {
+                        "unit": "Bytes",
+                        "type": "builtin",
+                        "counter": "UsedSpace",
+                        "counterSpecifier": "/builtin/FileSystem/UsedSpace",
+                        "annotation": [
+                          {
+                            "locale": "en-us",
+                            "displayName": "Used disk space on /"
+                          }
+                        ],
+                        "condition": "Name=\"/\"",
+                        "class": "Filesystem"
+                      }
+                    ]
+                  },
+                  "metrics": {
+                    "metricAggregation": [
+                      {
+                        "scheduledTransferPeriod": "PT1H"
+                      },
+                      {
+                        "scheduledTransferPeriod": "PT1M"
+                      }
+                    ],
+                    "resourceId": "/subscriptions/6b62054d-bae7-46e4-a0ee-0c6950d10e9e/resourceGroups/aditya-dev/providers/Microsoft.Compute/virtualMachines/testeventhub-vm"
+                  },
+                  "eventVolume": "Large",
+                  "syslogEvents": {
+                    "sinks": "SyslogJsonBlob,LoggingEventHub",
+                    "syslogEventConfiguration": {
+                      "LOG_USER": "LOG_INFO"
+                    }
+                  },
+                  "sampleRateInSeconds": 15
+                }
+              },
+              "perfCfg": [
+                {
+                  "query": "SELECT PercentProcessorTime, PercentIdleTime FROM SCX_ProcessorStatisticalInformation WHERE Name='_TOTAL'",
+                  "table": "LinuxCpu",
+                  "frequency": 60,
+                  "sinks": "LinuxCpuJsonBlob,LinuxCpuEventHub"
+                }
+              ],
+              "fileLogs": [
+                {
+                  "file": "/var/log/myladtestlog",
+                  "table": "MyLadTestLog",
+                  "sinks": "FilelogJsonBlob,LoggingEventHub"
+                }
+              ]
+            },
+            "protectedSettings": {
+              "storageAccountName": "[variables('diagnosticStorageAccountName')]",
+              "storageAccountKey": "[listkeys(variables('diagnosticStorageAccountId'), '2016-12-01').keys[0].value]",
+              "storageAccountEndPoint": "https://core.windows.net",
+              "EventHub": {
+                "Url": "[variables('eventHubUri')]",
+                "SharedAccessKeyName": "[variables('eventHubKeyName')]",
+                "SharedAccessKey": "[listkeys(resourceId('6b62054d-bae7-46e4-a0ee-0c6950d10e9e', variables('eventHubResourceGroup'), 'Microsoft.EventHub/namespaces/eventhubs/authorizationRules', variables('eventHubNamespaceName'), variables('eventHubName'), variables('eventHubKeyName')), variables('ehversion')).primaryConnectionString]"
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "outputs": {
+    "adminUsername": {
+      "type": "string",
+      "value": "[parameters('adminUsername')]"
+    }
+  }
+}
